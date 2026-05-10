@@ -2,6 +2,7 @@
 Структура проекта
 ```
 lab-7/
+├── docs/screenshots/lab7
 ├── docker-compose.yml                  
 ├── todo-app/
 │   └── backend/
