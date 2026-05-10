@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: todo-backend
+  namespace: todo-app          # namespace вашего приложения
+  labels:
+    # Этот лейбл должен совпадать с тем, что ищет Prometheus Operator
+    # Проверить: kubectl get prometheus -n monitoring -o yaml | grep serviceMonitorSelector
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: todo-backend         # должно совпадать с лейблом на Service бэкенда
+  endpoints:
+    - port: http                # имя порта в Service (должно совпадать)
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'Lab7 Dashboards'
+    orgId: 1
+    folder: 'Lab7'
+    folderUid: 'lab7'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true      # можно редактировать через UI
+    options:
+      path: /etc/grafana/provisioning/dashboards

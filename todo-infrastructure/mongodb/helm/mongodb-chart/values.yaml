@@ -1,0 +1,12 @@
+namespace: default
+replicas: 1
+storage:
+  size: 1Gi
+database:
+  name: todoapp
+  username: admin
+  password: admin123
+image:
+  repository: mongo
+  tag: "7.0"
+  pullPolicy: IfNotPresent

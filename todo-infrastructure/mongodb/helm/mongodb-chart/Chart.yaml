@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mongodb-infra
+description: MongoDB StatefulSet for Todo App
+version: 1.0.0
+appVersion: "7.0"

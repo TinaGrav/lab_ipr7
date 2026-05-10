@@ -1,0 +1,13 @@
+﻿namespace: todo-dev
+name: mongodb
+replicas: 1
+storage:
+  size: 500Mi
+database:
+  username: devuser
+  password: devpass123
+  name: todoapp
+image:
+  repository: mongo
+  tag: "6.0"
+  pullPolicy: IfNotPresent

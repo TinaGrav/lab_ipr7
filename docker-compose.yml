@@ -1,0 +1,136 @@
+version: '3.8'
+
+# ─── Полный стек: приложение + наблюдаемость ─────────────────────────────────
+# Запуск: docker compose up -d
+# Остановка: docker compose down
+
+services:
+
+  # ── MongoDB ──────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: todo-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: todoapp
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - todo-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (Express.js с метриками и трейсингом) ─────────────────────────
+  backend:
+    build:
+      context: ./todo-app/backend
+      dockerfile: Dockerfile
+    container_name: todo-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"   # API
+    environment:
+      MONGODB_URL: mongodb://mongodb:27017/todoapp
+      PORT: 5000
+      # Трейсинг: указываем Tempo как получатель
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_SERVICE_NAME: todo-backend
+      OTEL_RESOURCE_ATTRIBUTES: "service.version=1.0.0,deployment.environment=local"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - todo-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── Frontend (React + Nginx) ───────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./todo-app/frontend
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      REACT_APP_API_URL: http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - todo-net
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: todo-prometheus
+    restart: unless-stopped
+    ports:
+      - "19090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'     # позволяет перезагрузить конфиг без рестарта
+    depends_on:
+      - backend
+    networks:
+      - todo-net
+
+  # ── Grafana Tempo (приём трейсов) ─────────────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: todo-tempo
+    restart: unless-stopped
+    ports:
+      - "3200:3200"   # Tempo HTTP API (для Grafana)
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./observability/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+    command: ["-config.file=/etc/tempo.yml"]
+    networks:
+      - todo-net
+
+  # ── Grafana (дашборды) ────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: todo-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin   # только для локальной учёбы!
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - todo-net
+
+# ─── Тома для хранения данных ─────────────────────────────────────────────────
+volumes:
+  mongodb_data:
+  prometheus_data:
+  tempo_data:
+  grafana_data:
+
+# ─── Общая сеть ───────────────────────────────────────────────────────────────
+networks:
+  todo-net:
+    driver: bridge

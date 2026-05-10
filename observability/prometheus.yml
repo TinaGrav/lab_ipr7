@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s        # как часто собираем метрики
+  evaluation_interval: 15s   # как часто оцениваем правила алертов
+
+scrape_configs:
+  # Сам Prometheus собирает свои метрики
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Наш todo-backend
+  # В Docker Compose backend доступен по имени сервиса 'backend'
+  - job_name: 'todo-backend'
+    metrics_path: '/metrics'       # явно указываем путь
+    scrape_interval: 10s           # для учебы чуть чаще
+    static_configs:
+      - targets: ['backend:5000']
+        labels:
+          app: 'todo-app'
+          environment: 'local'

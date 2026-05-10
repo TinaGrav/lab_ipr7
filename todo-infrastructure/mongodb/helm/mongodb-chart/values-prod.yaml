@@ -1,0 +1,11 @@
+namespace: todo-prod
+replicas: 3
+storage:
+  size: 10Gi
+database:
+  username: produser
+  password: ""
+  name: todoapp
+image:
+  repository: mongo
+  tag: "7.0"
